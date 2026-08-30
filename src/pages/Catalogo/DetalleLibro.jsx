@@ -4,34 +4,162 @@ import {
     Chip,
     Button,
     Card,
-    CardMedia
+    CardMedia,
+    CircularProgress,
+    Alert
 } from "@mui/material";
 
-import { useParams } from "react-router-dom";
+import {
+    useEffect,
+    useState
+} from "react";
 
-import DashboardLayout from "@/layouts/DashboardLayout";
+import {
+    useParams
+} from "react-router-dom";
 
-import { books } from "@/data/books";
+import DashboardLayout
+    from "@/layouts/DashboardLayout";
 
 export default function DetalleLibro() {
 
     const { id } = useParams();
 
-    const book = books.find(
-        b => b.id === Number(id)
-    );
+    const [book, setBook] =
+        useState(null);
 
-    if (!book) {
+    const [loading, setLoading] =
+        useState(true);
+
+    const [error, setError] =
+        useState("");
+
+
+    useEffect(() => {
+
+        const cargarLibro = async () => {
+
+            try {
+
+                setLoading(true);
+                setError("");
+
+                const response =
+                    await fetch(
+                        `https://backend-okn0.onrender.com/api/libros/${id}`
+                    );
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        "No se pudo obtener el libro"
+                    );
+                }
+
+                const result =
+                    await response.json();
+
+                setBook(result.data);
+
+            } catch (error) {
+
+                console.error(
+                    "Error cargando libro:",
+                    error
+                );
+
+                setError(
+                    "No se pudo cargar el libro."
+                );
+
+            } finally {
+
+                setLoading(false);
+
+            }
+
+        };
+
+        cargarLibro();
+
+    }, [id]);
+
+
+    /*
+     * CARGANDO
+     */
+
+    if (loading) {
+
         return (
+
             <DashboardLayout>
-                <Typography>
-                    Libro no encontrado
-                </Typography>
+
+                <Box
+                    sx={{
+                        minHeight: 400,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center"
+                    }}
+                >
+
+                    <CircularProgress />
+
+                </Box>
+
             </DashboardLayout>
+
         );
     }
 
+
+    /*
+     * ERROR
+     */
+
+    if (error) {
+
+        return (
+
+            <DashboardLayout>
+
+                <Alert severity="error">
+                    {error}
+                </Alert>
+
+            </DashboardLayout>
+
+        );
+    }
+
+
+    /*
+     * LIBRO NO ENCONTRADO
+     */
+
+    if (!book) {
+
+        return (
+
+            <DashboardLayout>
+
+                <Typography>
+                    Libro no encontrado
+                </Typography>
+
+            </DashboardLayout>
+
+        );
+    }
+
+
+    /*
+     * DETALLE DEL LIBRO
+     */
+
     return (
+
         <DashboardLayout>
 
             <Box
@@ -45,12 +173,20 @@ export default function DetalleLibro() {
                 }}
             >
 
+                {/* PORTADA */}
+
                 <Card>
+
                     <CardMedia
                         component="img"
                         image={book.portada}
+                        alt={book.titulo}
                     />
+
                 </Card>
+
+
+                {/* INFORMACIÓN */}
 
                 <Box>
 
@@ -61,6 +197,7 @@ export default function DetalleLibro() {
                         {book.titulo}
                     </Typography>
 
+
                     <Typography
                         mt={2}
                         color="text.secondary"
@@ -69,6 +206,7 @@ export default function DetalleLibro() {
                         {" "}
                         {book.autor}
                     </Typography>
+
 
                     <Typography
                         mt={1}
@@ -79,7 +217,11 @@ export default function DetalleLibro() {
                         {book.categoria}
                     </Typography>
 
+
+                    {/* DISPONIBILIDAD */}
+
                     <Box mt={3}>
+
                         <Chip
                             color={
                                 book.disponible
@@ -89,10 +231,28 @@ export default function DetalleLibro() {
                             label={
                                 book.disponible
                                     ? "Disponible"
-                                    : "Reservado"
+                                    : "No disponible"
                             }
                         />
+
                     </Box>
+
+
+                    {/* STOCK */}
+
+                    <Typography
+                        mt={2}
+                        color="text.secondary"
+                    >
+                        Ejemplares disponibles:
+                        {" "}
+                        <strong>
+                            {book.stock}
+                        </strong>
+                    </Typography>
+
+
+                    {/* PRÓLOGO */}
 
                     <Typography
                         variant="h5"
@@ -103,14 +263,20 @@ export default function DetalleLibro() {
                         Prólogo
                     </Typography>
 
+
                     <Typography
                         sx={{
                             lineHeight: 2,
                             textAlign: "justify"
                         }}
                     >
-                        {book.prologo}
+                        {book.prologo ||
+                            "Este libro no tiene prólogo disponible."
+                        }
                     </Typography>
+
+
+                    {/* RESERVAR */}
 
                     <Button
                         variant="contained"
@@ -122,7 +288,7 @@ export default function DetalleLibro() {
                             !book.disponible
                         }
                     >
-                        Reservar Libro
+                        Agregar a reserva
                     </Button>
 
                 </Box>
@@ -130,6 +296,6 @@ export default function DetalleLibro() {
             </Box>
 
         </DashboardLayout>
-    );
 
+    );
 }

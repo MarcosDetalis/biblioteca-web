@@ -1,4 +1,4 @@
- import {
+import {
   Box,
   Typography,
   Card,
@@ -13,41 +13,368 @@
   DialogContent,
   DialogContentText,
   DialogActions,
+  CircularProgress,
 } from "@mui/material";
 
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import QRCode from "react-qr-code";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 
-import {
-  useReservation,
-} from "@/context/ReservationContext";
-import { useState } from "react";
+
 export default function DetalleReserva() {
+
   const { id } = useParams();
 
-  const navigate = useNavigate();
- 
-  const [openCancelDialog, setOpenCancelDialog] =
-  useState(false);
+  const navigate =
+    useNavigate();
 
-  const {
-    reservations,
-    cancelReservation,
-  } = useReservation();
 
-  const reservation =
-    reservations.find(
-      (item) => item.id === id
+  /*
+   * ==========================================
+   * ESTADOS
+   * ==========================================
+   */
+
+  const [
+    reservation,
+    setReservation,
+  ] = useState(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+
+  const [
+    openCancelDialog,
+    setOpenCancelDialog,
+  ] = useState(false);
+
+
+  const [
+    cancelando,
+    setCancelando,
+  ] = useState(false);
+
+
+  /*
+   * ==========================================
+   * CARGAR RESERVA DESDE BACKEND
+   * ==========================================
+   */
+
+  useEffect(() => {
+
+    const cargarReserva =
+      async () => {
+
+        try {
+
+          setLoading(true);
+
+          setError("");
+
+
+          const response =
+            await fetch(
+              `https://backend-okn0.onrender.com/api/reservas/${id}`
+            );
+
+
+          const result =
+            await response.json();
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              result.message ||
+              "No se pudo consultar la reserva."
+            );
+
+          }
+
+
+          /*
+           * Backend:
+           *
+           * {
+           *   success: true,
+           *   data: {...}
+           * }
+           */
+
+          const data =
+            result?.data;
+
+
+          if (!data) {
+
+            throw new Error(
+              "El servidor no devolvió los datos de la reserva."
+            );
+
+          }
+
+
+          setReservation(data);
+
+
+        } catch (error) {
+
+          console.error(
+            "Error obteniendo reserva:",
+            error
+          );
+
+
+          setError(
+            error.message ||
+            "No se pudo cargar la reserva."
+          );
+
+
+        } finally {
+
+          setLoading(false);
+
+        }
+
+      };
+
+
+    if (id) {
+
+      cargarReserva();
+
+    }
+
+  }, [id]);
+
+
+  /*
+   * ==========================================
+   * COLORES DEL ESTADO
+   * ==========================================
+   */
+
+  const estadoColor = {
+
+    ACTIVA: "success",
+
+    PENDIENTE: "warning",
+
+    CANCELADA: "error",
+
+    RETIRADA: "info",
+
+    VENCIDA: "default",
+
+  };
+
+
+  /*
+   * ==========================================
+   * CANCELAR RESERVA
+   * ==========================================
+   *
+   * La cancelación ahora se realiza
+   * directamente contra el backend.
+   */
+
+  const handleCancelar = async () => {
+
+    if (!reservation) {
+
+      return;
+
+    }
+
+
+    try {
+
+      setCancelando(true);
+
+      setError("");
+
+
+      /*
+       * ========================================
+       * LLAMAR AL BACKEND
+       * ========================================
+       */
+
+      const response =
+        await fetch(
+          `https://backend-okn0.onrender.com/api/reservas/${reservation.id}/cancelar`,
+          {
+            method: "PATCH",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+
+      /*
+       * ========================================
+       * RESPUESTA
+       * ========================================
+       */
+
+      const result =
+        await response.json();
+
+
+      /*
+       * ========================================
+       * ERROR
+       * ========================================
+       */
+
+      if (!response.ok) {
+
+        throw new Error(
+          result.message ||
+          "No se pudo cancelar la reserva."
+        );
+
+      }
+
+
+      /*
+       * ========================================
+       * ACTUALIZAR PANTALLA
+       * ========================================
+       */
+
+      setReservation(
+        (prev) => ({
+          ...prev,
+
+          estado:
+            result?.data?.estado ||
+            "CANCELADA",
+        })
+      );
+
+
+      /*
+       * CERRAR DIALOG
+       */
+
+      setOpenCancelDialog(false);
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cancelando reserva:",
+        error
+      );
+
+
+      setError(
+        error.message ||
+        "No se pudo cancelar la reserva."
+      );
+
+
+    } finally {
+
+      setCancelando(false);
+
+    }
+
+  };
+
+
+  /*
+   * ==========================================
+   * LOADING
+   * ==========================================
+   */
+
+  if (loading) {
+
+    return (
+
+      <DashboardLayout>
+
+        <Box
+          sx={{
+            minHeight: 400,
+
+            display: "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "center",
+
+            flexDirection:
+              "column",
+
+            gap: 2,
+          }}
+        >
+
+          <CircularProgress />
+
+
+          <Typography
+            color="text.secondary"
+          >
+            Cargando reserva...
+          </Typography>
+
+        </Box>
+
+      </DashboardLayout>
+
     );
 
-  if (!reservation) {
+  }
+
+
+  /*
+   * ==========================================
+   * ERROR / NO ENCONTRADA
+   * ==========================================
+   */
+
+  if (
+    error ||
+    !reservation
+  ) {
+
     return (
+
       <DashboardLayout>
+
         <Card>
+
           <CardContent>
+
             <Typography
               variant="h5"
               fontWeight={700}
@@ -55,13 +382,16 @@ export default function DetalleReserva() {
               Reserva no encontrada
             </Typography>
 
+
             <Typography
               color="text.secondary"
               mt={1}
             >
-              La reserva que intentas consultar
-              no existe o ya no está disponible.
+              {error ||
+                "La reserva que intentas consultar no existe o ya no está disponible."
+              }
             </Typography>
+
 
             <Button
               variant="contained"
@@ -72,34 +402,36 @@ export default function DetalleReserva() {
             >
               Volver a mis reservas
             </Button>
+
           </CardContent>
+
         </Card>
 
-        
       </DashboardLayout>
 
-      
     );
+
   }
 
-  const estadoColor = {
-    ACTIVA: "success",
-    CANCELADA: "error",
-    RETIRADA: "info",
-    VENCIDA: "warning",
-  };
 
-  const qrData = JSON.stringify({
-    reserva: reservation.id,
-  });
+  /*
+   * ==========================================
+   * QR
+   * ==========================================
+   */
 
- const handleCancelar = () => {
-  cancelReservation(reservation.id);
+  const qrData =
+    reservation.codigoQR;
 
-  setOpenCancelDialog(false);
-};
+
+  /*
+   * ==========================================
+   * RENDER
+   * ==========================================
+   */
 
   return (
+
     <DashboardLayout>
 
       <Box
@@ -109,15 +441,26 @@ export default function DetalleReserva() {
         }}
       >
 
+        {/* ==================================== */}
+        {/* VOLVER */}
+        {/* ==================================== */}
+
         <Button
           variant="text"
           onClick={() =>
             navigate("/reservas")
           }
-          sx={{ mb: 2 }}
+          sx={{
+            mb: 2,
+          }}
         >
           ← Volver a mis reservas
         </Button>
+
+
+        {/* ==================================== */}
+        {/* TITULO */}
+        {/* ==================================== */}
 
         <Typography
           variant="h4"
@@ -126,6 +469,7 @@ export default function DetalleReserva() {
         >
           Detalle de Reserva
         </Typography>
+
 
         <Typography
           color="text.secondary"
@@ -136,51 +480,95 @@ export default function DetalleReserva() {
           al momento del retiro.
         </Typography>
 
+
+        {/* ==================================== */}
+        {/* ERROR DE CANCELACIÓN */}
+        {/* ==================================== */}
+
+        {error && (
+
+          <Alert
+            severity="error"
+            sx={{
+              mb: 3,
+            }}
+          >
+            {error}
+          </Alert>
+
+        )}
+
+
         <Card>
+
           <CardContent
-            sx={{ p: { xs: 2, md: 4 } }}
+            sx={{
+              p: {
+                xs: 2,
+                md: 4,
+              },
+            }}
           >
 
+            {/* ================================ */}
             {/* ENCABEZADO */}
+            {/* ================================ */}
 
             <Box
               sx={{
                 display: "flex",
+
                 justifyContent:
                   "space-between",
-                alignItems: "center",
+
+                alignItems:
+                  "center",
+
                 gap: 2,
-                flexWrap: "wrap",
+
+                flexWrap:
+                  "wrap",
               }}
             >
 
               <Box>
+
                 <Typography
                   variant="h6"
                   fontWeight={700}
                 >
-                  Reserva #
-                  {reservation.id
-                    .slice(0, 8)
-                    .toUpperCase()}
+                  Reserva #{" "}
+                  {reservation.numeroReserva ||
+                    reservation.id
+                  }
                 </Typography>
 
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  mt={0.5}
-                >
-                  Creada el{" "}
-                  {new Date(
-                    reservation.fechaCreacion
-                  ).toLocaleDateString(
-                    "es-PY"
-                  )}
-                </Typography>
+
+                {reservation.fechaCreacion && (
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    mt={0.5}
+                  >
+                    Creada el{" "}
+                    {new Date(
+                      reservation.fechaCreacion
+                    ).toLocaleDateString(
+                      "es-PY"
+                    )}
+                  </Typography>
+
+                )}
+
               </Box>
 
+
               <Chip
-                label={reservation.estado}
+                label={
+                  reservation.estado ||
+                  "PENDIENTE"
+                }
                 color={
                   estadoColor[
                     reservation.estado
@@ -190,22 +578,33 @@ export default function DetalleReserva() {
 
             </Box>
 
-            <Divider sx={{ my: 3 }} />
 
+            <Divider
+              sx={{
+                my: 3,
+              }}
+            />
+
+
+            {/* ================================ */}
             {/* FECHA Y HORA */}
+            {/* ================================ */}
 
             <Box
               sx={{
                 display: "grid",
+
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "1fr 1fr",
                 },
+
                 gap: 3,
               }}
             >
 
               <Box>
+
                 <Typography
                   variant="body2"
                   color="text.secondary"
@@ -213,15 +612,22 @@ export default function DetalleReserva() {
                   Fecha de retiro
                 </Typography>
 
+
                 <Typography
                   fontWeight={600}
                   mt={0.5}
                 >
-                  {reservation.fechaRetiro}
+                  {
+                    reservation.fechaRetiro ||
+                    "-"
+                  }
                 </Typography>
+
               </Box>
 
+
               <Box>
+
                 <Typography
                   variant="body2"
                   color="text.secondary"
@@ -229,19 +635,32 @@ export default function DetalleReserva() {
                   Hora de retiro
                 </Typography>
 
+
                 <Typography
                   fontWeight={600}
                   mt={0.5}
                 >
-                  {reservation.horaRetiro}
+                  {
+                    reservation.horaRetiro ||
+                    "-"
+                  }
                 </Typography>
+
               </Box>
 
             </Box>
 
-            <Divider sx={{ my: 3 }} />
 
+            <Divider
+              sx={{
+                my: 3,
+              }}
+            />
+
+
+            {/* ================================ */}
             {/* LIBROS */}
+            {/* ================================ */}
 
             <Typography
               variant="h6"
@@ -251,55 +670,93 @@ export default function DetalleReserva() {
               Libros reservados
             </Typography>
 
+
             <Stack spacing={1.5}>
 
-              {reservation.libros.map(
-                (book) => (
-                  <Box
-                    key={book.id}
-                    sx={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems: "center",
-                      gap: 2,
-                      p: 2,
-                      bgcolor: "#F6F8FB",
-                      borderRadius: 2,
-                    }}
-                  >
+              {Array.isArray(
+                reservation.libros
+              ) &&
+                reservation.libros.map(
+                  (
+                    book,
+                    index
+                  ) => (
 
-                    <Box>
-                      <Typography
-                        fontWeight={600}
-                      >
-                        {book.titulo}
-                      </Typography>
+                    <Box
+                      key={
+                        book.id ??
+                        index
+                      }
+                      sx={{
+                        display:
+                          "flex",
 
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                      >
-                        {book.autor}
-                      </Typography>
+                        justifyContent:
+                          "space-between",
+
+                        alignItems:
+                          "center",
+
+                        gap: 2,
+
+                        p: 2,
+
+                        bgcolor:
+                          "#F6F8FB",
+
+                        borderRadius: 2,
+                      }}
+                    >
+
+                      <Box>
+
+                        <Typography
+                          fontWeight={600}
+                        >
+                          {
+                            book.titulo
+                          }
+                        </Typography>
+
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                        >
+                          {
+                            book.autor
+                          }
+                        </Typography>
+
+                      </Box>
+
+
+                      <Chip
+                        label={
+                          `x${book.cantidad}`
+                        }
+                        size="small"
+                      />
+
                     </Box>
 
-                    <Chip
-                      label={`x${book.cantidad}`}
-                      size="small"
-                    />
-
-                  </Box>
-                )
-              )}
+                  )
+                )}
 
             </Stack>
+
+
+            {/* ================================ */}
+            {/* TOTAL */}
+            {/* ================================ */}
 
             <Box
               sx={{
                 display: "flex",
+
                 justifyContent:
                   "space-between",
+
                 mt: 3,
               }}
             >
@@ -310,24 +767,39 @@ export default function DetalleReserva() {
                 Total de ejemplares
               </Typography>
 
+
               <Typography
                 fontWeight={700}
               >
-                {reservation.totalEjemplares}
+                {
+                  reservation.totalEjemplares ??
+                  0
+                }
               </Typography>
 
             </Box>
 
-            <Divider sx={{ my: 3 }} />
 
+            <Divider
+              sx={{
+                my: 3,
+              }}
+            />
+
+
+            {/* ================================ */}
             {/* QR */}
+            {/* ================================ */}
 
-            {reservation.estado ===
-              "ACTIVA" && (
+            {reservation.estado !==
+              "CANCELADA" && (
+
               <>
+
                 <Box
                   sx={{
-                    textAlign: "center",
+                    textAlign:
+                      "center",
                   }}
                 >
 
@@ -337,6 +809,7 @@ export default function DetalleReserva() {
                   >
                     Código de retiro
                   </Typography>
+
 
                   <Typography
                     variant="body2"
@@ -348,116 +821,224 @@ export default function DetalleReserva() {
                     al retirar tus libros.
                   </Typography>
 
+
                   <Box
                     sx={{
-                      display: "inline-flex",
+                      display:
+                        "inline-flex",
+
                       p: 2,
-                      bgcolor: "white",
+
+                      bgcolor:
+                        "white",
+
                       borderRadius: 2,
+
                       border:
                         "1px solid #E5E7EB",
                     }}
                   >
+
                     <QRCode
-                      value={qrData}
-                      size={180}
+                      value={
+                        qrData ||
+                        String(
+                          reservation.id
+                        )
+                      }
+                      size={200}
                     />
+
                   </Box>
 
                 </Box>
 
+
                 <Alert
                   severity="info"
-                  sx={{ mt: 3 }}
+                  sx={{
+                    mt: 3,
+                  }}
                 >
                   El código QR corresponde
-                  exclusivamente a esta reserva.
+                  exclusivamente a esta
+                  reserva.
                 </Alert>
+
               </>
+
             )}
 
+
+            {/* ================================ */}
             {/* CANCELAR */}
+            {/* ================================ */}
 
             {reservation.estado ===
-              "ACTIVA" && (
+              "PENDIENTE" && (
+
               <Box
                 sx={{
                   display: "flex",
+
                   justifyContent:
                     "flex-end",
+
                   mt: 4,
                 }}
               >
 
-               <Button
-                color="error"
-                variant="outlined"
-                onClick={() =>
-                  setOpenCancelDialog(true)
-                }
-              >
-                Cancelar reserva
-              </Button>
+                <Button
+                  color="error"
+                  variant="outlined"
+                  onClick={() =>
+                    setOpenCancelDialog(
+                      true
+                    )
+                  }
+                  disabled={cancelando}
+                >
+                  Cancelar reserva
+                </Button>
+
               </Box>
+
             )}
+
+
+            {/* ================================ */}
+            {/* RESERVA CANCELADA */}
+            {/* ================================ */}
 
             {reservation.estado ===
               "CANCELADA" && (
+
               <Alert
                 severity="warning"
-                sx={{ mt: 3 }}
+                sx={{
+                  mt: 3,
+                }}
               >
                 Esta reserva fue cancelada.
               </Alert>
+
             )}
 
           </CardContent>
+
         </Card>
+
+
+        {/* ==================================== */}
+        {/* DIALOG CANCELACIÓN */}
+        {/* ==================================== */}
+
+        <Dialog
+          open={openCancelDialog}
+          onClose={() => {
+
+            if (!cancelando) {
+
+              setOpenCancelDialog(
+                false
+              );
+
+            }
+
+          }}
+        >
+
+          <DialogTitle>
+            Cancelar reserva
+          </DialogTitle>
+
+
+          <DialogContent>
+
+            <DialogContentText>
+              ¿Estás seguro de que deseas
+              cancelar esta reserva?
+            </DialogContentText>
+
+
+            <DialogContentText
+              sx={{
+                mt: 2,
+              }}
+            >
+              Esta acción no se puede
+              deshacer.
+            </DialogContentText>
+
+
+            {error && (
+
+              <Alert
+                severity="error"
+                sx={{
+                  mt: 2,
+                }}
+              >
+                {error}
+              </Alert>
+
+            )}
+
+          </DialogContent>
+
+
+          <DialogActions>
+
+            <Button
+              onClick={() =>
+                setOpenCancelDialog(
+                  false
+                )
+              }
+              disabled={cancelando}
+            >
+              Volver
+            </Button>
+
+
+            <Button
+              color="error"
+              variant="contained"
+              onClick={
+                handleCancelar
+              }
+              disabled={cancelando}
+            >
+
+              {cancelando
+                ? (
+                  <>
+                    <CircularProgress
+                      size={18}
+                      color="inherit"
+                      sx={{
+                        mr: 1,
+                      }}
+                    />
+
+                    Cancelando...
+                  </>
+                )
+                : (
+                  "Cancelar reserva"
+                )
+              }
+
+            </Button>
+
+          </DialogActions>
+
+        </Dialog>
 
       </Box>
 
-
-<Dialog
-  open={openCancelDialog}
-  onClose={() =>
-    setOpenCancelDialog(false)
-}
->
-  <DialogTitle>
-    Cancelar reserva
-  </DialogTitle>
-
-  <DialogContent>
-    <DialogContentText>
-      ¿Estás seguro de que deseas
-      cancelar esta reserva?
-    </DialogContentText>
-
-    <DialogContentText
-      sx={{ mt: 2 }}
-    >
-      Esta acción no se puede deshacer.
-    </DialogContentText>
-  </DialogContent>
-
-  <DialogActions>
-    <Button
-      onClick={() =>
-        setOpenCancelDialog(false)
-      }
-    >
-      Volver
-    </Button>
-
-    <Button
-      color="error"
-      variant="contained"
-      onClick={handleCancelar}
-    >
-      Cancelar reserva
-    </Button>
-  </DialogActions>
-</Dialog>
     </DashboardLayout>
+
   );
+
 }

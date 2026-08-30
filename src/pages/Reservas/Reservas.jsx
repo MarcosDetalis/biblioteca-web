@@ -7,43 +7,262 @@ import {
   Divider,
   Button,
   Stack,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 
-import { useNavigate } from "react-router-dom";
+import {
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 
-import {
-  useReservation,
-} from "@/context/ReservationContext";
 
 export default function Reservas() {
-  const navigate = useNavigate();
 
-  const {
+  const navigate =
+    useNavigate();
+
+
+  /*
+   * ==========================================
+   * ESTADOS
+   * ==========================================
+   */
+
+  const [
     reservations,
-  } = useReservation();
+    setReservations,
+  ] = useState([]);
 
-  const getStatusColor = (estado) => {
-    switch (estado) {
-      case "ACTIVA":
-        return "success";
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-      case "CANCELADA":
-        return "error";
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-      case "RETIRADA":
-        return "info";
 
-      case "VENCIDA":
-        return "warning";
+  /*
+   * ==========================================
+   * CARGAR RESERVAS DESDE API
+   * ==========================================
+   */
 
-      default:
-        return "default";
-    }
-  };
+  useEffect(() => {
+
+    const cargarReservas =
+      async () => {
+
+        try {
+
+          setLoading(true);
+          setError("");
+
+
+          const response =
+            await fetch(
+              "https://backend-okn0.onrender.com/api/reservas"
+            );
+
+
+          const result =
+            await response.json();
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              result.message ||
+              "No se pudieron cargar las reservas."
+            );
+
+          }
+
+
+          /*
+           * El backend devuelve:
+           *
+           * {
+           *   success: true,
+           *   data: [...]
+           * }
+           */
+
+          setReservations(
+            Array.isArray(
+              result.data
+            )
+              ? result.data
+              : []
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            "Error cargando reservas:",
+            error
+          );
+
+
+          setError(
+            error.message ||
+            "No se pudieron cargar las reservas."
+          );
+
+
+        } finally {
+
+          setLoading(false);
+
+        }
+
+      };
+
+
+    cargarReservas();
+
+  }, []);
+
+
+  /*
+   * ==========================================
+   * COLOR DEL ESTADO
+   * ==========================================
+   */
+
+  const getStatusColor =
+    (estado) => {
+
+      switch (
+        String(
+          estado || ""
+        ).toUpperCase()
+      ) {
+
+        case "ACTIVA":
+          return "success";
+
+        case "PENDIENTE":
+          return "warning";
+
+        case "CANCELADA":
+          return "error";
+
+        case "RETIRADA":
+          return "info";
+
+        case "VENCIDA":
+          return "default";
+
+        default:
+          return "default";
+
+      }
+
+    };
+
+
+  /*
+   * ==========================================
+   * LOADING
+   * ==========================================
+   */
+
+  if (loading) {
+
+    return (
+
+      <DashboardLayout>
+
+        <Box
+          sx={{
+            minHeight: 300,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+
+          <CircularProgress />
+
+          <Typography
+            color="text.secondary"
+          >
+            Cargando reservas...
+          </Typography>
+
+        </Box>
+
+      </DashboardLayout>
+
+    );
+
+  }
+
+
+  /*
+   * ==========================================
+   * ERROR
+   * ==========================================
+   */
+
+  if (error) {
+
+    return (
+
+      <DashboardLayout>
+
+        <Typography
+          variant="h4"
+          fontWeight={700}
+          mb={1}
+        >
+          Mis Reservas
+        </Typography>
+
+
+        <Typography
+          color="text.secondary"
+          mb={4}
+        >
+          Consulta tus reservas de libros
+          y su estado actual.
+        </Typography>
+
+
+        <Alert
+          severity="error"
+        >
+          {error}
+        </Alert>
+
+      </DashboardLayout>
+
+    );
+
+  }
+
+
+  /*
+   * ==========================================
+   * PANTALLA
+   * ==========================================
+   */
 
   return (
+
     <DashboardLayout>
 
       <Typography
@@ -54,6 +273,7 @@ export default function Reservas() {
         Mis Reservas
       </Typography>
 
+
       <Typography
         color="text.secondary"
         mb={4}
@@ -62,15 +282,24 @@ export default function Reservas() {
         y su estado actual.
       </Typography>
 
+
+      {/* ====================================== */}
+      {/* SIN RESERVAS */}
+      {/* ====================================== */}
+
       {reservations.length === 0 ? (
+
         <Card>
+
           <CardContent>
+
             <Typography
               variant="h6"
               textAlign="center"
             >
               No tienes reservas
             </Typography>
+
 
             <Typography
               color="text.secondary"
@@ -81,80 +310,130 @@ export default function Reservas() {
               aparecerá aquí.
             </Typography>
 
+
             <Box
               display="flex"
               justifyContent="center"
               mt={3}
             >
+
               <Button
                 variant="contained"
                 onClick={() =>
-                  navigate("/catalogo")
+                  navigate(
+                    "/catalogo"
+                  )
                 }
               >
                 Ir al catálogo
               </Button>
+
             </Box>
+
           </CardContent>
+
         </Card>
+
       ) : (
+
+        /* ==================================== */
+        /* LISTA */
+        /* ==================================== */
+
         <Box
           sx={{
             display: "grid",
             gap: 3,
+
             gridTemplateColumns: {
               xs: "1fr",
               md: "repeat(2, 1fr)",
             },
           }}
         >
+
           {reservations.map(
             (reservation) => (
+
               <Card
-                key={reservation.id}
+                key={
+                  reservation.id
+                }
                 sx={{
                   height: "100%",
                   display: "flex",
-                  flexDirection: "column",
+                  flexDirection:
+                    "column",
                 }}
               >
+
                 <CardContent
                   sx={{
                     flexGrow: 1,
                   }}
                 >
 
+                  {/* ======================== */}
+                  {/* CABECERA */}
+                  {/* ======================== */}
+
                   <Box
                     display="flex"
                     justifyContent="space-between"
                     alignItems="center"
                     gap={2}
+                    flexWrap="wrap"
                   >
-                    <Typography
-                      variant="h6"
-                      fontWeight={700}
-                    >
-                      Reserva #
-                      {reservation.id.slice(
-                        0,
-                        8
-                      ).toUpperCase()}
-                    </Typography>
+
+                    <Box>
+
+                      <Typography
+                        variant="h6"
+                        fontWeight={700}
+                      >
+                        Reserva
+                      </Typography>
+
+
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                      >
+                        {
+                          reservation.numeroReserva ||
+                          `#${reservation.id}`
+                        }
+                      </Typography>
+
+                    </Box>
+
 
                     <Chip
                       label={
-                        reservation.estado
+                        reservation.estado ||
+                        "PENDIENTE"
                       }
-                      color={getStatusColor(
-                        reservation.estado
-                      )}
+                      color={
+                        getStatusColor(
+                          reservation.estado
+                        )
+                      }
                       size="small"
                     />
+
                   </Box>
 
+
                   <Divider
-                    sx={{ my: 2 }}
+                    sx={{
+                      my: 2,
+                    }}
                   />
+
+
+                  {/* ======================== */}
+                  {/* FECHA */}
+                  {/* ======================== */}
 
                   <Typography
                     variant="body2"
@@ -163,11 +442,20 @@ export default function Reservas() {
                     Fecha de retiro
                   </Typography>
 
+
                   <Typography
                     fontWeight={600}
                   >
-                    {reservation.fechaRetiro}
+                    {
+                      reservation.fechaRetiro ||
+                      "-"
+                    }
                   </Typography>
+
+
+                  {/* ======================== */}
+                  {/* HORA */}
+                  {/* ======================== */}
 
                   <Typography
                     variant="body2"
@@ -177,11 +465,20 @@ export default function Reservas() {
                     Hora de retiro
                   </Typography>
 
+
                   <Typography
                     fontWeight={600}
                   >
-                    {reservation.horaRetiro}
+                    {
+                      reservation.horaRetiro ||
+                      "-"
+                    }
                   </Typography>
+
+
+                  {/* ======================== */}
+                  {/* LIBROS */}
+                  {/* ======================== */}
 
                   <Typography
                     variant="body2"
@@ -191,59 +488,118 @@ export default function Reservas() {
                     Libros reservados
                   </Typography>
 
+
                   <Stack
                     spacing={1}
                     mt={1}
                   >
-                    {reservation.libros.map(
-                      (book) => (
-                        <Box
-                          key={book.id}
-                          sx={{
-                            display: "flex",
-                            justifyContent:
-                              "space-between",
-                            gap: 2,
-                          }}
-                        >
-                          <Typography>
-                            {book.titulo}
-                          </Typography>
 
-                          <Typography
-                            fontWeight={600}
+                    {Array.isArray(
+                      reservation.libros
+                    ) &&
+                      reservation.libros.map(
+                        (
+                          book,
+                          index
+                        ) => (
+
+                          <Box
+                            key={
+                              book.id ??
+                              index
+                            }
+                            sx={{
+                              display: "flex",
+                              justifyContent:
+                                "space-between",
+                              gap: 2,
+                            }}
                           >
-                            x{book.cantidad}
-                          </Typography>
-                        </Box>
-                      )
-                    )}
+
+                            <Typography>
+                              {
+                                book.titulo ||
+                                "Libro"
+                              }
+                            </Typography>
+
+
+                            <Typography
+                              fontWeight={600}
+                            >
+                              x
+                              {
+                                book.cantidad ||
+                                1
+                              }
+                            </Typography>
+
+                          </Box>
+
+                        )
+                      )}
+
                   </Stack>
 
+
                   <Divider
-                    sx={{ my: 2 }}
+                    sx={{
+                      my: 2,
+                    }}
                   />
+
+
+                  {/* ======================== */}
+                  {/* TOTAL */}
+                  {/* ======================== */}
 
                   <Box
                     display="flex"
                     justifyContent="space-between"
                   >
+
                     <Typography
                       color="text.secondary"
                     >
                       Total de ejemplares
                     </Typography>
 
+
                     <Typography
                       fontWeight={700}
                     >
                       {
-                        reservation.totalEjemplares
+                        reservation.totalEjemplares ??
+                        0
                       }
                     </Typography>
+
                   </Box>
 
+
+                  {/* ======================== */}
+                  {/* QR */}
+                  {/* ======================== */}
+
+                  {reservation.codigoQR && (
+
+                    <Alert
+                      severity="success"
+                      sx={{
+                        mt: 2,
+                      }}
+                    >
+                      Código QR disponible
+                    </Alert>
+
+                  )}
+
                 </CardContent>
+
+
+                {/* ========================== */}
+                {/* BOTÓN */}
+                {/* ========================== */}
 
                 <Box
                   sx={{
@@ -251,6 +607,7 @@ export default function Reservas() {
                     pb: 2,
                   }}
                 >
+
                   <Button
                     fullWidth
                     variant="outlined"
@@ -262,14 +619,20 @@ export default function Reservas() {
                   >
                     Ver detalle
                   </Button>
+
                 </Box>
 
               </Card>
+
             )
           )}
+
         </Box>
+
       )}
 
     </DashboardLayout>
+
   );
+
 }
