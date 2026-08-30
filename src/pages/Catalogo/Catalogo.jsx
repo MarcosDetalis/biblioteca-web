@@ -17,6 +17,7 @@ import TextInput
     from "@/components/Input/TextInput";
 
 import BookCard
+
     from "@/components/Book/BookCard";
 
 import {
@@ -230,7 +231,7 @@ export default function Catalogo() {
                 </Box>
 
             )}
-
+ 
 
             {/* LIBROS */}
 
