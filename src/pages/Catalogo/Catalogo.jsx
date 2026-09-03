@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import DashboardLayout
     from "@/layouts/DashboardLayout";
@@ -21,20 +22,33 @@ import BookCard
     from "@/components/Book/BookCard";
 
 import {
-    categories
-} from "@/data/categories";
+    obtenerLibrosRequest,
+    obtenerCategoriasRequest,
+} from "@/api/libros.api";
 
 
 export default function Catalogo() {
+
+    // Permite llegar desde Inicio con una categoría ya elegida
+    // (ver el bloque de categorías en pages/Home/Home.jsx).
+    const location = useLocation();
 
     const [search, setSearch] =
         useState("");
 
     const [category, setCategory] =
-        useState("Todas");
+        useState(
+            location.state?.categoriaInicial || "Todas"
+        );
 
     const [books, setBooks] =
         useState([]);
+
+    // Las categorías se traen de la base (tabla categorias vía
+    // GET /api/libros/categorias), nunca hardcodeadas, para que el
+    // filtro siempre refleje lo que carga el bibliotecario.
+    const [categories, setCategories] =
+        useState(["Todas"]);
 
     const [loading, setLoading] =
         useState(true);
@@ -45,7 +59,7 @@ export default function Catalogo() {
 
     useEffect(() => {
 
-        const cargarLibros = async () => {
+        const cargarDatos = async () => {
 
             try {
 
@@ -53,25 +67,24 @@ export default function Catalogo() {
 
                 setError("");
 
-                const response =
-                    await fetch(
-                        "https://backend-okn0.onrender.com/api/libros"
-                    );
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "Error al consultar los libros"
-                    );
-
-                }
-
-                const result =
-                    await response.json();
+                const [
+                    librosResult,
+                    categoriasResult,
+                ] = await Promise.all([
+                    obtenerLibrosRequest(),
+                    obtenerCategoriasRequest(),
+                ]);
 
                 setBooks(
-                    result.data || []
+                    librosResult.data || []
                 );
+
+                setCategories([
+                    "Todas",
+                    ...(categoriasResult.data || []).map(
+                        (cat) => cat.nombre
+                    ),
+                ]);
 
             } catch (error) {
 
@@ -89,7 +102,7 @@ export default function Catalogo() {
 
         };
 
-        cargarLibros();
+        cargarDatos();
 
     }, []);
 

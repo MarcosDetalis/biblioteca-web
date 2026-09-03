@@ -29,6 +29,10 @@ import {
 import QRCode from "react-qr-code";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
+import {
+  obtenerReservaPorIdRequest,
+  cancelarReservaRequest,
+} from "@/api/reservas.api";
 
 
 export default function DetalleReserva() {
@@ -91,24 +95,8 @@ export default function DetalleReserva() {
           setError("");
 
 
-          const response =
-            await fetch(
-              `https://backend-okn0.onrender.com/api/reservas/${id}`
-            );
-
-
           const result =
-            await response.json();
-
-
-          if (!response.ok) {
-
-            throw new Error(
-              result.message ||
-              "No se pudo consultar la reserva."
-            );
-
-          }
+            await obtenerReservaPorIdRequest(id);
 
 
           /*
@@ -145,6 +133,7 @@ export default function DetalleReserva() {
 
 
           setError(
+            error.response?.data?.message ||
             error.message ||
             "No se pudo cargar la reserva."
           );
@@ -220,44 +209,10 @@ export default function DetalleReserva() {
        * ========================================
        */
 
-      const response =
-        await fetch(
-          `https://backend-okn0.onrender.com/api/reservas/${reservation.id}/cancelar`,
-          {
-            method: "PATCH",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
-        );
-
-
-      /*
-       * ========================================
-       * RESPUESTA
-       * ========================================
-       */
-
       const result =
-        await response.json();
-
-
-      /*
-       * ========================================
-       * ERROR
-       * ========================================
-       */
-
-      if (!response.ok) {
-
-        throw new Error(
-          result.message ||
-          "No se pudo cancelar la reserva."
+        await cancelarReservaRequest(
+          reservation.id
         );
-
-      }
 
 
       /*
@@ -293,6 +248,7 @@ export default function DetalleReserva() {
 
 
       setError(
+        error.response?.data?.message ||
         error.message ||
         "No se pudo cancelar la reserva."
       );

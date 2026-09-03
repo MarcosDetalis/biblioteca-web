@@ -72,27 +72,29 @@ export function ReservationCartProvider({
         }
 
 
-        const stock =
-            Number(book.stock) || 0;
-
-
         /*
-         * Si maxReserva existe,
-         * utilizamos ese valor.
-         *
-         * Si todavía no viene de la API,
-         * utilizamos el stock.
+         * El máximo ya NO se basa en el stock
+         * disponible ahora mismo (eso se resuelve
+         * recién en el momento del retiro): se basa
+         * en el total de ejemplares que ese libro
+         * tiene registrados, sea cual sea su estado
+         * actual. Así se puede reservar aunque en
+         * este momento estén todos prestados.
          */
+
+        const totalEjemplares =
+            Number(book.totalEjemplares) || 0;
+
 
         const maxReserva =
             book.maxReserva != null
                 ? Number(book.maxReserva)
-                : stock;
+                : totalEjemplares;
 
 
         const maxCantidad =
             Math.min(
-                stock,
+                totalEjemplares,
                 maxReserva
             );
 
@@ -102,7 +104,7 @@ export function ReservationCartProvider({
             return {
                 success: false,
                 message:
-                    "Este libro no tiene ejemplares disponibles.",
+                    "Este libro no tiene ejemplares registrados en el sistema.",
                 severity: "error",
             };
 
@@ -194,8 +196,8 @@ export function ReservationCartProvider({
                 }
 
 
-                const stock =
-                    Number(book.stock) || 0;
+                const totalEjemplares =
+                    Number(book.totalEjemplares) || 0;
 
 
                 const maxReserva =
@@ -203,12 +205,12 @@ export function ReservationCartProvider({
                         ? Number(
                             book.maxReserva
                         )
-                        : stock;
+                        : totalEjemplares;
 
 
                 const maxCantidad =
                     Math.min(
-                        stock,
+                        totalEjemplares,
                         maxReserva
                     );
 

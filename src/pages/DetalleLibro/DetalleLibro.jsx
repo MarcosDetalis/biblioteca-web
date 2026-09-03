@@ -27,6 +27,7 @@ import DashboardLayout
 import {
     useReservationCart,
 } from "@/context/ReservationCartContext";
+import { obtenerLibroPorIdRequest } from "@/api/libros.api";
 
 
 export default function DetalleLibro() {
@@ -90,23 +91,8 @@ export default function DetalleLibro() {
 
                 setError("");
 
-                const response =
-                    await fetch(
-                        `https://backend-okn0.onrender.com/api/libros/${id}`
-                    );
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        "No se pudo obtener el libro"
-                    );
-
-                }
-
-
                 const result =
-                    await response.json();
+                    await obtenerLibroPorIdRequest(id);
 
 
                 if (!result.success) {
@@ -155,14 +141,25 @@ export default function DetalleLibro() {
     /*
      * DISPONIBILIDAD
      *
-     * La disponibilidad se determina
-     * directamente por el stock.
+     * "disponible" (stock > 0) es la disponibilidad EN ESTE INSTANTE,
+     * ya no determina si se puede reservar o no: eso ahora se resuelve
+     * recién en el momento del retiro. Lo único que de verdad bloquea
+     * la reserva es que el libro no tenga NINGÚN ejemplar registrado
+     * en el sistema (capacidad total = 0).
      */
 
-    const disponible =
+    const disponibleAhora =
         book
             ? Number(book.stock) > 0
             : false;
+
+    const capacidadTotal =
+        book
+            ? Number(book.totalEjemplares) || 0
+            : 0;
+
+    const sePuedeReservar =
+        capacidadTotal > 0;
 
 
     /*
@@ -176,12 +173,12 @@ export default function DetalleLibro() {
         }
 
 
-        if (!disponible) {
+        if (!sePuedeReservar) {
 
             setSnackbar({
                 open: true,
                 message:
-                    "Este libro no tiene ejemplares disponibles.",
+                    "Este libro no tiene ejemplares registrados en el sistema.",
                 severity: "error",
             });
 
@@ -402,14 +399,14 @@ export default function DetalleLibro() {
 
                         <Chip
                             color={
-                                disponible
+                                disponibleAhora
                                     ? "success"
-                                    : "error"
+                                    : "warning"
                             }
                             label={
-                                disponible
-                                    ? "Disponible"
-                                    : "No disponible"
+                                disponibleAhora
+                                    ? "Disponible ahora"
+                                    : "Sin ejemplares libres en este momento"
                             }
                         />
 
@@ -424,11 +421,28 @@ export default function DetalleLibro() {
                         color="text.secondary"
                         mt={2}
                     >
-                        Ejemplares disponibles:{" "}
+                        Ejemplares disponibles ahora:{" "}
                         <strong>
                             {Number(book.stock) || 0}
                         </strong>
+                        {" "}de{" "}
+                        <strong>
+                            {capacidadTotal}
+                        </strong>
+                        {" "}en total
                     </Typography>
+
+
+                    {!disponibleAhora && sePuedeReservar && (
+
+                        <Alert
+                            severity="info"
+                            sx={{ mt: 1 }}
+                        >
+                            Igual podés reservarlo: la disponibilidad real se confirma en el momento del retiro, por orden de llegada.
+                        </Alert>
+
+                    )}
 
 
                     <Divider
@@ -473,7 +487,7 @@ export default function DetalleLibro() {
                         sx={{
                             mt: 5,
                         }}
-                        disabled={!disponible}
+                        disabled={!sePuedeReservar}
                         onClick={
                             handleAddBook
                         }

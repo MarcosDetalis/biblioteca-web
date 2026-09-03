@@ -8,10 +8,10 @@ export const ESTADOS_RESERVA = {
 };
 
 export function obtenerMaximaCantidad(book) {
-  const stock = Number(book.stock) || 0;
+  const totalEjemplares = Number(book.totalEjemplares) || 0;
   const maxReserva = Number(book.maxReserva) || 0;
 
-  return Math.min(stock, maxReserva);
+  return Math.min(totalEjemplares, maxReserva);
 }
 
 export function validarCantidad(book, cantidad) {

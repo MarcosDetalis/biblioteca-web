@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 
 import Logo from "@/components/Logo/Logo";
 import AppCard from "@/components/Card/AppCard";
-//import AppButton from "@/components/Button/AppButton";
 import PageContainer from "@/components/Layout/PageContainer";
 import TextInput from "@/components/Input/TextInput";
 import PasswordField from "@/components/Input/PasswordField";
@@ -16,10 +15,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { motion } from "framer-motion";
+import Swal from "sweetalert2";
 
 import LoadingButton from "@/components/Button/LoadingButton";
 import { useAuth } from "@/context/AuthContext";
- 
+import { loginRequest } from "@/api/usuarios.api";
+
 export default function Login() {
 
 const navigate = useNavigate();
@@ -39,18 +40,35 @@ const onSubmit = async (data) => {
 
     setLoading(true);
 
-    await new Promise(
-        resolve =>
-            setTimeout(resolve, 1200)
-    );
+    try {
 
-    login({
-        nombre: "Marcos",
-        email: data.email,
-        rol: "ALUMNO"
-    });
+        // El backend acepta correo o cédula en el mismo campo.
+        const respuesta = await loginRequest({
+            identificador: data.email,
+            password: data.password,
+        });
 
-    navigate("/home");
+        login(respuesta.data.usuario, respuesta.data.token);
+
+        navigate("/home");
+
+    } catch (error) {
+
+        const mensaje =
+            error.response?.data?.message ||
+            "No fue posible iniciar sesión. Probá de nuevo.";
+
+        Swal.fire({
+            icon: "error",
+            title: "No se pudo iniciar sesión",
+            text: mensaje,
+        });
+
+    } finally {
+
+        setLoading(false);
+
+    }
 
 };
 
@@ -97,17 +115,11 @@ const onSubmit = async (data) => {
                     <Logo />
 
                    <TextInput
-                    label="Correo electrónico"
+                    label="Correo electrónico o cédula"
                     error={!!errors.email}
                     helperText={errors.email?.message}
                     {...register("email", {
-                        required: "Ingrese su correo",
-                        pattern: {
-                            value:
-                                /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                            message:
-                                "Correo inválido",
-                        },
+                        required: "Ingrese su correo o cédula",
                     })}
                 />
 
@@ -118,18 +130,13 @@ const onSubmit = async (data) => {
                     {...register("password", {
                         required:
                             "Ingrese su contraseña",
-                        minLength: {
-                            value: 4,
-                            message:
-                                "Mínimo 4 caracteres",
-                        },
                     })}
                 />
 
                     <LoadingButton
                         loading={loading}
                         type="submit"
-                        
+
                     >
                         Iniciar Sesión
                     </LoadingButton>
@@ -141,6 +148,7 @@ const onSubmit = async (data) => {
                             cursor: "pointer",
                             fontWeight: 500,
                         }}
+                        onClick={() => navigate("/recuperar-password")}
                     >
                         ¿Olvidó su contraseña?
                     </Typography>

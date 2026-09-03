@@ -81,6 +81,12 @@ export default function CarritoReserva() {
     const [hora, setHora] =
         useState("");
 
+    const [fechaDevolucion, setFechaDevolucion] =
+        useState("");
+
+    const [horaDevolucion, setHoraDevolucion] =
+        useState("");
+
 
     /*
      * ==========================================
@@ -130,6 +136,22 @@ export default function CarritoReserva() {
 
     /*
      * ==========================================
+     * VALIDACIÓN DE DEVOLUCIÓN ESTIMADA
+     * ==========================================
+     * Tiene que ser una fecha igual o posterior a
+     * la de retiro (no tendría sentido devolver
+     * antes de haber retirado).
+     */
+
+    const devolucionValida =
+        fechaDevolucion !== "" &&
+        horaDevolucion !== "" &&
+        fecha !== "" &&
+        fechaDevolucion >= fecha;
+
+
+    /*
+     * ==========================================
      * CANTIDAD MÁXIMA
      * ==========================================
      */
@@ -137,18 +159,18 @@ export default function CarritoReserva() {
     const obtenerMaxCantidad =
         (book) => {
 
-            const stock =
-                Number(book.stock) || 0;
+            const totalEjemplares =
+                Number(book.totalEjemplares) || 0;
 
             const maxReserva =
                 book.maxReserva != null
                     ? Number(
                         book.maxReserva
                     )
-                    : stock;
+                    : totalEjemplares;
 
             return Math.min(
-                stock,
+                totalEjemplares,
                 maxReserva
             );
         };
@@ -182,6 +204,7 @@ export default function CarritoReserva() {
         fecha !== "" &&
         hora !== "" &&
         validacionFecha.valido &&
+        devolucionValida &&
         !loading;
 
 
@@ -242,6 +265,10 @@ export default function CarritoReserva() {
 
                         horaRetiro:
                             hora,
+
+                        fechaDevolucion,
+
+                        horaDevolucion,
 
                     });
 
@@ -467,9 +494,17 @@ export default function CarritoReserva() {
                                                     variant="body2"
                                                     mt={1}
                                                 >
-                                                    Stock disponible:
+                                                    Ejemplares en total:
                                                     {" "}
-                                                    {book.stock}
+                                                    {book.totalEjemplares}
+                                                </Typography>
+
+
+                                                <Typography
+                                                    variant="body2"
+                                                    color="text.secondary"
+                                                >
+                                                    La disponibilidad real se confirma en el momento del retiro.
                                                 </Typography>
 
 
@@ -708,6 +743,104 @@ export default function CarritoReserva() {
                                 <Divider />
 
 
+                                {/* FECHA DE DEVOLUCIÓN ESTIMADA */}
+
+                                <TextField
+                                    label="Fecha estimada de devolución"
+                                    type="date"
+                                    value={fechaDevolucion}
+                                    onChange={(e) => {
+
+                                        setFechaDevolucion(
+                                            e.target.value
+                                        );
+
+                                        setHoraDevolucion("");
+
+                                    }}
+                                    slotProps={{
+                                        inputLabel: {
+                                            shrink: true,
+                                        },
+
+                                        htmlInput: {
+                                            min:
+                                                fecha || fechaMinima,
+                                        },
+                                    }}
+                                    fullWidth
+                                />
+
+                                {fechaDevolucion &&
+                                    fecha &&
+                                    fechaDevolucion < fecha && (
+
+                                        <Alert
+                                            severity="error"
+                                        >
+                                            La devolución no puede ser antes de la fecha de retiro.
+                                        </Alert>
+
+                                    )}
+
+                                <Box>
+
+                                    <Typography
+                                        mb={2}
+                                        fontWeight={600}
+                                    >
+                                        Hora estimada de devolución
+                                    </Typography>
+
+
+                                    <Box
+                                        sx={{
+                                            display:
+                                                "flex",
+
+                                            gap: 1,
+
+                                            flexWrap:
+                                                "wrap",
+                                        }}
+                                    >
+
+                                        {horariosDisponibles.map(
+                                            (item) => (
+
+                                                <Button
+                                                    key={item}
+                                                    variant={
+                                                        horaDevolucion === item
+                                                            ? "contained"
+                                                            : "outlined"
+                                                    }
+
+                                                    disabled={
+                                                        !fechaDevolucion ||
+                                                        loading
+                                                    }
+
+                                                    onClick={() =>
+                                                        setHoraDevolucion(
+                                                            item
+                                                        )
+                                                    }
+                                                >
+                                                    {item}
+                                                </Button>
+
+                                            )
+                                        )}
+
+                                    </Box>
+
+                                </Box>
+
+
+                                <Divider />
+
+
                                 {/* =================================
                                     RESUMEN
                                 ================================= */}
@@ -747,6 +880,15 @@ export default function CarritoReserva() {
                                         </Typography>
 
 
+                                        <Typography>
+                                            Devolución estimada:
+                                            {" "}
+                                            {fechaDevolucion || "-"}
+                                            {" "}
+                                            {horaDevolucion || ""}
+                                        </Typography>
+
+
                                         <Typography
                                             mt={2}
                                             fontWeight={700}
@@ -759,6 +901,11 @@ export default function CarritoReserva() {
                                     </CardContent>
 
                                 </Card>
+
+
+                                <Alert severity="info">
+                                    La reserva se crea siempre. La disponibilidad real de cada ejemplar se confirma recién en el momento del retiro: si no alcanza para todos, se resuelve por orden de llegada.
+                                </Alert>
 
 
                                 {/* =================================

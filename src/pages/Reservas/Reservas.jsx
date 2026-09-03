@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
-
+import { obtenerReservasRequest } from "@/api/reservas.api";
 
 export default function Reservas() {
 
@@ -68,24 +68,8 @@ export default function Reservas() {
           setError("");
 
 
-          const response =
-            await fetch(
-              "https://backend-okn0.onrender.com/api/reservas"
-            );
-
-
           const result =
-            await response.json();
-
-
-          if (!response.ok) {
-
-            throw new Error(
-              result.message ||
-              "No se pudieron cargar las reservas."
-            );
-
-          }
+            await obtenerReservasRequest();
 
 
           /*
@@ -115,6 +99,7 @@ export default function Reservas() {
 
 
           setError(
+            error.response?.data?.message ||
             error.message ||
             "No se pudieron cargar las reservas."
           );

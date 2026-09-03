@@ -11,6 +11,14 @@ import {
     MAX_RESERVAS_ACTIVAS,
 } from "@/utils/reservationRules";
 
+import {
+    crearReservaRequest,
+    obtenerReservasRequest,
+    cancelarReservaRequest,
+} from "@/api/reservas.api";
+
+import { useAuth } from "@/context/AuthContext";
+
 
 const ReservationContext =
     createContext();
@@ -20,10 +28,16 @@ export function ReservationProvider({
     children,
 }) {
 
+    const { isAuthenticated } = useAuth();
+
     /*
      * ==========================================
      * RESERVAS
      * ==========================================
+     * Ya no se guardan solo en localStorage: se traen del backend
+     * (que es lo que realmente sabe qué reservó cada usuario). El
+     * localStorage queda como respaldo mientras carga, para que la
+     * pantalla no aparezca vacía un instante al entrar.
      */
 
     const [
@@ -55,10 +69,58 @@ export function ReservationProvider({
 
     });
 
+    const [loadingReservations, setLoadingReservations] = useState(false);
+
 
     /*
      * ==========================================
-     * PERSISTENCIA LOCAL
+     * CARGAR RESERVAS REALES AL INICIAR SESIÓN
+     * ==========================================
+     */
+
+    useEffect(() => {
+
+        if (!isAuthenticated) {
+            return;
+        }
+
+        const cargarReservas = async () => {
+
+            try {
+
+                setLoadingReservations(true);
+
+                const respuesta = await obtenerReservasRequest();
+
+                setReservations(
+                    Array.isArray(respuesta.data)
+                        ? respuesta.data
+                        : []
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Error cargando reservas:",
+                    error
+                );
+
+            } finally {
+
+                setLoadingReservations(false);
+
+            }
+
+        };
+
+        cargarReservas();
+
+    }, [isAuthenticated]);
+
+
+    /*
+     * ==========================================
+     * PERSISTENCIA LOCAL (respaldo, no la fuente de verdad)
      * ==========================================
      */
 
@@ -84,6 +146,8 @@ export function ReservationProvider({
         libros,
         fechaRetiro,
         horaRetiro,
+        fechaDevolucion,
+        horaDevolucion,
     }) => {
 
         /*
@@ -155,18 +219,12 @@ export function ReservationProvider({
          * ======================================
          * DATOS PARA BACKEND
          * ======================================
+         * El usuario ya NO se manda acá: el backend lo saca del token
+         * de sesión (ver src/api/client.js), así nadie puede reservar
+         * "en nombre de" otra persona con solo cambiar un número.
          */
 
         const datosReserva = {
-
-            /*
-             * TEMPORAL
-             *
-             * Posteriormente vendrá
-             * del usuario autenticado.
-             */
-
-            idUsuario: 1,
 
             libros:
                 libros.map(
@@ -195,13 +253,11 @@ export function ReservationProvider({
 
             horaRetiro,
 
+            fechaDevolucion,
+
+            horaDevolucion,
+
         };
-
-
-        console.log(
-            "Datos enviados al backend:",
-            datosReserva
-        );
 
 
         try {
@@ -212,60 +268,10 @@ export function ReservationProvider({
              * ==================================
              */
 
-            const response =
-                await fetch(
-                    "https://backend-okn0.onrender.com/api/reservas",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-
-                        body:
-                            JSON.stringify(
-                                datosReserva
-                            ),
-                    }
-                );
-
-
-            /*
-             * ==================================
-             * LEER RESPUESTA
-             * ==================================
-             */
-
             const result =
-                await response.json();
-
-
-            console.log(
-                "RESPUESTA API RESERVA:",
-                result
-            );
-
-
-            /*
-             * ==================================
-             * ERROR HTTP
-             * ==================================
-             */
-
-            if (!response.ok) {
-
-                return {
-
-                    success: false,
-
-                    message:
-                        result.message ||
-                        "No se pudo crear la reserva.",
-
-                };
-
-            }
+                await crearReservaRequest(
+                    datosReserva
+                );
 
 
             /*
@@ -330,18 +336,6 @@ export function ReservationProvider({
                 null;
 
 
-            console.log(
-                "CODIGO QR RECIBIDO:",
-                codigoQR
-            );
-
-
-            console.log(
-                "NUMERO RESERVA:",
-                numeroReserva
-            );
-
-
             /*
              * ==================================
              * RESERVA COMPLETA
@@ -400,12 +394,6 @@ export function ReservationProvider({
             };
 
 
-            /*
-             * ==================================
-             * VALIDAR QR
-             * ==================================
-             */
-
             if (!codigoQR) {
 
                 console.warn(
@@ -463,6 +451,7 @@ export function ReservationProvider({
                 success: false,
 
                 message:
+                    error.response?.data?.message ||
                     "No se pudo conectar con el servidor.",
 
             };
@@ -476,25 +465,59 @@ export function ReservationProvider({
      * ==========================================
      * CANCELAR RESERVA
      * ==========================================
+     * Antes esto SOLO cambiaba el estado en el navegador, sin avisarle
+     * nada al backend: la reserva seguía "activa" ahí, ocupando el
+     * ejemplar, aunque en pantalla apareciera cancelada. Ahora llama a
+     * la API real y solo actualiza el estado local si el backend
+     * confirmó la cancelación.
      */
 
     const cancelReservation =
-        (id) => {
+        async (id) => {
 
-            setReservations(
-                (prev) =>
-                    prev.map(
-                        (reservation) =>
-                            reservation.id === id
-                                ? {
-                                    ...reservation,
+            try {
 
-                                    estado:
-                                        "CANCELADA",
-                                }
-                                : reservation
-                    )
-            );
+                const respuesta =
+                    await cancelarReservaRequest(id);
+
+                setReservations(
+                    (prev) =>
+                        prev.map(
+                            (reservation) =>
+                                reservation.id === id
+                                    ? {
+                                        ...reservation,
+
+                                        estado:
+                                            respuesta.data?.estado ||
+                                            "CANCELADA",
+                                    }
+                                    : reservation
+                        )
+                );
+
+                return {
+                    success: true,
+                    message:
+                        respuesta.message ||
+                        "Reserva cancelada.",
+                };
+
+            } catch (error) {
+
+                console.error(
+                    "Error cancelando reserva:",
+                    error
+                );
+
+                return {
+                    success: false,
+                    message:
+                        error.response?.data?.message ||
+                        "No se pudo cancelar la reserva.",
+                };
+
+            }
 
         };
 
@@ -510,6 +533,7 @@ export function ReservationProvider({
         <ReservationContext.Provider
             value={{
                 reservations,
+                loadingReservations,
                 createReservation,
                 cancelReservation,
             }}
