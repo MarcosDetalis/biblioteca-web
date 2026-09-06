@@ -16,6 +16,17 @@ export async function obtenerReservasRequest() {
     return data;
 }
 
+export async function verificarDisponibilidadHorarioRequest({ libros, fechaRetiro, horaRetiro, fechaDevolucion, horaDevolucion }) {
+    const { data } = await apiClient.post("/reservas/verificar-horario", {
+        libros,
+        fechaRetiro,
+        horaRetiro,
+        fechaDevolucion,
+        horaDevolucion,
+    });
+    return data;
+}
+
 export async function obtenerReservaPorIdRequest(id) {
     const { data } = await apiClient.get(`/reservas/${id}`);
     return data;

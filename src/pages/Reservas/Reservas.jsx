@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
+import { formatearFecha } from "@/utils/formatDate";
 import { obtenerReservasRequest } from "@/api/reservas.api";
 
 export default function Reservas() {
@@ -432,8 +433,7 @@ export default function Reservas() {
                     fontWeight={600}
                   >
                     {
-                      reservation.fechaRetiro ||
-                      "-"
+                      formatearFecha(reservation.fechaRetiro)
                     }
                   </Typography>
 

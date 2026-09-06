@@ -1,3 +1,5 @@
+import { HORA_APERTURA, HORA_CIERRE } from "@/data/horarios";
+
 export const MAX_RESERVAS_ACTIVAS = 3;
 
 export const ESTADOS_RESERVA = {
@@ -100,6 +102,29 @@ export function esFechaPasada(fecha) {
   );
 
   return seleccionada < hoy;
+}
+
+export function validarHorario(hora) {
+  if (!hora) {
+    return {
+      valido: false,
+      mensaje:
+        "Selecciona una hora.",
+    };
+  }
+
+  if (hora < HORA_APERTURA || hora > HORA_CIERRE) {
+    return {
+      valido: false,
+      mensaje:
+        `La biblioteca atiende de ${HORA_APERTURA} a ${HORA_CIERRE}.`,
+    };
+  }
+
+  return {
+    valido: true,
+    mensaje: "",
+  };
 }
 
 export function validarFechaRetiro(fecha) {

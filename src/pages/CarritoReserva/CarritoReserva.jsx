@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 
@@ -26,7 +26,8 @@ import {
 } from "@/context/ReservationContext";
 
 import {
-    horariosDisponibles,
+    HORA_APERTURA,
+    HORA_CIERRE,
 } from "@/data/horarios";
 
 import {
@@ -35,7 +36,12 @@ import {
 
 import {
     validarFechaRetiro,
+    validarHorario,
 } from "@/utils/reservationRules";
+
+import {
+    verificarDisponibilidadHorarioRequest,
+} from "@/api/reservas.api";
 
 
 export default function CarritoReserva() {
@@ -147,7 +153,158 @@ export default function CarritoReserva() {
         fechaDevolucion !== "" &&
         horaDevolucion !== "" &&
         fecha !== "" &&
-        fechaDevolucion >= fecha;
+        fechaDevolucion >= fecha &&
+        validarHorario(horaDevolucion).valido;
+
+
+    /*
+     * ==========================================
+     * DISPONIBILIDAD DE LA FRANJA HORARIA
+     * ==========================================
+     * Se consulta en vivo apenas hay fecha/hora de
+     * retiro y de devolución completas: si algún
+     * libro del carrito ya está comprometido en esa
+     * franja (por otras reservas activas), se avisa
+     * acá y se ofrece el próximo horario libre ese
+     * mismo día, antes de intentar confirmar.
+     */
+
+    const [
+        disponibilidadHorario,
+        setDisponibilidadHorario,
+    ] = useState(null);
+
+    const [
+        verificandoHorario,
+        setVerificandoHorario,
+    ] = useState(false);
+
+    useEffect(() => {
+
+        if (
+            cart.length === 0 ||
+            !fecha ||
+            !hora ||
+            !fechaDevolucion ||
+            !horaDevolucion
+        ) {
+
+            setDisponibilidadHorario(null);
+
+            return;
+
+        }
+
+
+        let cancelado = false;
+
+        const verificar = async () => {
+
+            try {
+
+                setVerificandoHorario(true);
+
+                const respuesta =
+                    await verificarDisponibilidadHorarioRequest({
+
+                        libros: cart,
+
+                        fechaRetiro: fecha,
+
+                        horaRetiro: hora,
+
+                        fechaDevolucion,
+
+                        horaDevolucion,
+
+                    });
+
+
+                if (!cancelado) {
+
+                    setDisponibilidadHorario(
+                        respuesta.data
+                    );
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Error verificando disponibilidad de horario:",
+                    error
+                );
+
+                if (!cancelado) {
+
+                    /*
+                     * Si falla la consulta en vivo, no
+                     * bloqueamos al usuario: el backend
+                     * igual vuelve a validar al confirmar.
+                     */
+
+                    setDisponibilidadHorario(null);
+
+                }
+
+            } finally {
+
+                if (!cancelado) {
+
+                    setVerificandoHorario(false);
+
+                }
+
+            }
+
+        };
+
+
+        const timeoutId =
+            setTimeout(verificar, 300);
+
+        return () => {
+
+            cancelado = true;
+
+            clearTimeout(timeoutId);
+
+        };
+
+    }, [
+        cart,
+        fecha,
+        hora,
+        fechaDevolucion,
+        horaDevolucion,
+    ]);
+
+
+    const usarHorarioSugerido =
+        () => {
+
+            if (
+                !disponibilidadHorario?.sugerencia
+            ) {
+                return;
+            }
+
+            setHora(
+                disponibilidadHorario.sugerencia
+                    .horaRetiro
+            );
+
+            setFechaDevolucion(
+                disponibilidadHorario.sugerencia
+                    .fechaDevolucion
+            );
+
+            setHoraDevolucion(
+                disponibilidadHorario.sugerencia
+                    .horaDevolucion
+            );
+
+        };
 
 
     /*
@@ -204,7 +361,10 @@ export default function CarritoReserva() {
         fecha !== "" &&
         hora !== "" &&
         validacionFecha.valido &&
+        validarHorario(hora).valido &&
         devolucionValida &&
+        !verificandoHorario &&
+        disponibilidadHorario?.disponible === true &&
         !loading;
 
 
@@ -282,6 +442,15 @@ export default function CarritoReserva() {
                 if (
                     !resultado.success
                 ) {
+
+                    if (resultado.sugerencia) {
+
+                        setDisponibilidadHorario({
+                            disponible: false,
+                            sugerencia: resultado.sugerencia,
+                        });
+
+                    }
 
                     setSnackbar({
 
@@ -683,61 +852,44 @@ export default function CarritoReserva() {
                                     )}
 
 
-                                {/* HORARIOS */}
+                                {/* HORA DE RETIRO */}
 
-                                <Box>
+                                <TextField
+                                    label={`Hora de retiro (${HORA_APERTURA} a ${HORA_CIERRE})`}
+                                    type="time"
+                                    value={hora}
+                                    onChange={(e) =>
+                                        setHora(e.target.value)
+                                    }
+                                    disabled={
+                                        !validacionFecha.valido ||
+                                        loading
+                                    }
+                                    slotProps={{
+                                        inputLabel: {
+                                            shrink: true,
+                                        },
 
-                                    <Typography
-                                        mb={2}
-                                        fontWeight={600}
-                                    >
-                                        Horarios disponibles
-                                    </Typography>
+                                        htmlInput: {
+                                            min: HORA_APERTURA,
+                                            max: HORA_CIERRE,
+                                            step: 300,
+                                        },
+                                    }}
+                                    fullWidth
+                                />
 
+                                {hora !== "" &&
+                                    !validarHorario(hora).valido && (
 
-                                    <Box
-                                        sx={{
-                                            display:
-                                                "flex",
+                                        <Alert severity="error">
+                                            {
+                                                validarHorario(hora)
+                                                    .mensaje
+                                            }
+                                        </Alert>
 
-                                            gap: 1,
-
-                                            flexWrap:
-                                                "wrap",
-                                        }}
-                                    >
-
-                                        {horariosDisponibles.map(
-                                            (item) => (
-
-                                                <Button
-                                                    key={item}
-                                                    variant={
-                                                        hora === item
-                                                            ? "contained"
-                                                            : "outlined"
-                                                    }
-
-                                                    disabled={
-                                                        !validacionFecha.valido ||
-                                                        loading
-                                                    }
-
-                                                    onClick={() =>
-                                                        setHora(
-                                                            item
-                                                        )
-                                                    }
-                                                >
-                                                    {item}
-                                                </Button>
-
-                                            )
-                                        )}
-
-                                    </Box>
-
-                                </Box>
+                                    )}
 
 
                                 <Divider />
@@ -783,59 +935,85 @@ export default function CarritoReserva() {
 
                                     )}
 
-                                <Box>
+                                <TextField
+                                    label={`Hora estimada de devolución (${HORA_APERTURA} a ${HORA_CIERRE})`}
+                                    type="time"
+                                    value={horaDevolucion}
+                                    onChange={(e) =>
+                                        setHoraDevolucion(e.target.value)
+                                    }
+                                    disabled={
+                                        !fechaDevolucion ||
+                                        loading
+                                    }
+                                    slotProps={{
+                                        inputLabel: {
+                                            shrink: true,
+                                        },
 
-                                    <Typography
-                                        mb={2}
-                                        fontWeight={600}
-                                    >
-                                        Hora estimada de devolución
-                                    </Typography>
+                                        htmlInput: {
+                                            min: HORA_APERTURA,
+                                            max: HORA_CIERRE,
+                                            step: 300,
+                                        },
+                                    }}
+                                    fullWidth
+                                />
+
+                                {horaDevolucion !== "" &&
+                                    !validarHorario(horaDevolucion).valido && (
+
+                                        <Alert severity="error">
+                                            {
+                                                validarHorario(horaDevolucion)
+                                                    .mensaje
+                                            }
+                                        </Alert>
+
+                                    )}
 
 
-                                    <Box
-                                        sx={{
-                                            display:
-                                                "flex",
+                                {/* DISPONIBILIDAD DE LA FRANJA HORARIA */}
 
-                                            gap: 1,
+                                {verificandoHorario && (
 
-                                            flexWrap:
-                                                "wrap",
-                                        }}
-                                    >
+                                    <Alert severity="info">
+                                        Verificando disponibilidad de horario…
+                                    </Alert>
 
-                                        {horariosDisponibles.map(
-                                            (item) => (
+                                )}
 
-                                                <Button
-                                                    key={item}
-                                                    variant={
-                                                        horaDevolucion === item
-                                                            ? "contained"
-                                                            : "outlined"
-                                                    }
+                                {!verificandoHorario &&
+                                    disponibilidadHorario &&
+                                    !disponibilidadHorario.disponible && (
 
-                                                    disabled={
-                                                        !fechaDevolucion ||
-                                                        loading
-                                                    }
+                                        <Alert
+                                            severity="warning"
+                                            action={
+                                                disponibilidadHorario.sugerencia && (
+                                                    <Button
+                                                        color="inherit"
+                                                        size="small"
+                                                        onClick={usarHorarioSugerido}
+                                                    >
+                                                        Usar horario sugerido
+                                                    </Button>
+                                                )
+                                            }
+                                        >
+                                            {disponibilidadHorario.conflictos?.length > 0 && (
+                                                <>
+                                                    {disponibilidadHorario.conflictos.join(", ")}
+                                                    {" "}ya está{disponibilidadHorario.conflictos.length > 1 ? "n" : ""} comprometido{disponibilidadHorario.conflictos.length > 1 ? "s" : ""} en esa franja horaria.
+                                                    {" "}
+                                                </>
+                                            )}
+                                            {disponibilidadHorario.sugerencia
+                                                ? `Próximo horario disponible ese día: ${disponibilidadHorario.sugerencia.horaRetiro}.`
+                                                : "No hay otro horario disponible ese día, probá con otra fecha."}
+                                        </Alert>
 
-                                                    onClick={() =>
-                                                        setHoraDevolucion(
-                                                            item
-                                                        )
-                                                    }
-                                                >
-                                                    {item}
-                                                </Button>
-
-                                            )
-                                        )}
-
-                                    </Box>
-
-                                </Box>
+                                    )}
 
 
                                 <Divider />

@@ -29,6 +29,7 @@ import {
 import QRCode from "react-qr-code";
 
 import DashboardLayout from "@/layouts/DashboardLayout";
+import { formatearFecha } from "@/utils/formatDate";
 import {
   obtenerReservaPorIdRequest,
   cancelarReservaRequest,
@@ -574,8 +575,7 @@ export default function DetalleReserva() {
                   mt={0.5}
                 >
                   {
-                    reservation.fechaRetiro ||
-                    "-"
+                    formatearFecha(reservation.fechaRetiro)
                   }
                 </Typography>
 

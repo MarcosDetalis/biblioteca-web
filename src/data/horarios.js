@@ -1,11 +1,6 @@
-export const horariosDisponibles = [
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-];
+// Horario de atención de la biblioteca para retiro y devolución de
+// libros. Debe coincidir exactamente con el backend Node
+// (HORA_APERTURA/HORA_CIERRE en reservas.service.js) y con biblio_sys
+// (ReservasModel::HORA_APERTURA/HORA_CIERRE).
+export const HORA_APERTURA = "07:00";
+export const HORA_CIERRE = "20:00";

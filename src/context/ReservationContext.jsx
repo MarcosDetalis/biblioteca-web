@@ -454,6 +454,9 @@ export function ReservationProvider({
                     error.response?.data?.message ||
                     "No se pudo conectar con el servidor.",
 
+                sugerencia:
+                    error.response?.data?.sugerencia || null,
+
             };
 
         }
