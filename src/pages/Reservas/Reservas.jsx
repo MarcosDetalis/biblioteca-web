@@ -566,7 +566,10 @@ export default function Reservas() {
                   {/* QR */}
                   {/* ======================== */}
 
-                  {reservation.codigoQR && (
+                  {reservation.codigoQR &&
+                    !["CANCELADA", "VENCIDA", "FINALIZADA"].includes(
+                      reservation.estado
+                    ) && (
 
                     <Alert
                       severity="success"

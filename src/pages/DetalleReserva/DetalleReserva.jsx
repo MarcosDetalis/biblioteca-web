@@ -747,8 +747,9 @@ export default function DetalleReserva() {
             {/* QR */}
             {/* ================================ */}
 
-            {reservation.estado !==
-              "CANCELADA" && (
+            {!["CANCELADA", "VENCIDA", "FINALIZADA"].includes(
+              reservation.estado
+            ) && (
 
               <>
 
